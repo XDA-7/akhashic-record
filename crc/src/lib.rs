@@ -1,10 +1,10 @@
 const POLYNOMIAL: u32 = 0xedb88320;
 
-struct Crc {
+pub struct Crc {
     table: [u32; 256],
 }
 impl Crc {
-    fn new() -> Self {
+    pub fn new() -> Self {
         let mut table: [u32; 256] = [0; 256];
         for n in 0..256 {
             let mut c: u32 = n;
@@ -22,7 +22,7 @@ impl Crc {
             table
         }
     }
-    fn calculate(&self, data: &Vec<u8>) -> u32 {
+    pub fn calculate(&self, data: &Vec<u8>) -> u32 {
         let mut c: u32 = 0xffffffff;
         for byte in data {
             let table_index = (c ^ *byte as u32) & 0xff;
