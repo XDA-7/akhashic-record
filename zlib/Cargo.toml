@@ -1,19 +1,9 @@
 [package]
-name = "akhashic-record"
+name = "zlib"
 version = "0.1.0"
 authors = ["XDA-7 <xaraxsaren@hotmail.com.au>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[workspace]
-members = [
-    "chunk_writer",
-    "crc",
-    "png_image",
-    "lz77",
-    "lzw",
-    "zlib",
-]
 
 [dependencies]

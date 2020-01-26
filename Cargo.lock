@@ -16,6 +16,18 @@ name = "crc"
 version = "0.1.0"
 
 [[package]]
+name = "lz77"
+version = "0.1.0"
+
+[[package]]
+name = "lzw"
+version = "0.1.0"
+
+[[package]]
 name = "png_image"
+version = "0.1.0"
+
+[[package]]
+name = "zlib"
 version = "0.1.0"
 

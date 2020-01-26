@@ -1,0 +1,26 @@
+{
+	"folders": [
+		{
+			"path": "chunk_writer"
+		},
+		{
+			"path": "crc"
+		},
+		{
+			"path": "lz77"
+		},
+		{
+			"path": "png_image"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "zlib"
+		},
+		{
+			"path": "lzw"
+		}
+	],
+	"settings": {}
+}
