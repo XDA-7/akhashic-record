@@ -2,7 +2,7 @@ use std::fs;
 use std::io::Write;
 
 
-trait Image {
+pub trait Image {
     fn write(self, path: &str) -> Result<fs::File, std::io::Error>;
 }
 
@@ -187,7 +187,7 @@ mod png {
     }
 }
 
-mod gif {
+pub mod gif {
     use super::*;
     use std::fs;
     use image;
@@ -236,8 +236,8 @@ mod gif {
         result
     }
 
-    struct GifImage {
-        image: image::ColorImage,
+    pub struct GifImage {
+        pub image: image::ColorImage,
     }
     impl Image for GifImage {
         fn write(self, path: &str) -> Result<fs::File, std::io::Error> {

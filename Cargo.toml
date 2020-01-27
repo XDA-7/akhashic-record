@@ -17,3 +17,6 @@ members = [
 ]
 
 [dependencies]
+
+image = { path = "image" }
+chunk_writer = { path = "chunk_writer" }
