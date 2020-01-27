@@ -9,3 +9,5 @@ edition = "2018"
 [dependencies]
 
 crc = { path = "../crc" }
+image = { path = "../image" }
+lzw = { path = "../lzw" }

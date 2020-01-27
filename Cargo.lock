@@ -9,10 +9,16 @@ name = "chunk_writer"
 version = "0.1.0"
 dependencies = [
  "crc 0.1.0",
+ "image 0.1.0",
+ "lzw 0.1.0",
 ]
 
 [[package]]
 name = "crc"
+version = "0.1.0"
+
+[[package]]
+name = "image"
 version = "0.1.0"
 
 [[package]]
@@ -21,10 +27,6 @@ version = "0.1.0"
 
 [[package]]
 name = "lzw"
-version = "0.1.0"
-
-[[package]]
-name = "png_image"
 version = "0.1.0"
 
 [[package]]

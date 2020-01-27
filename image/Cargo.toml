@@ -1,5 +1,5 @@
 [package]
-name = "png_image"
+name = "image"
 version = "0.1.0"
 authors = ["XDA-7 <xaraxsaren@hotmail.com.au>"]
 edition = "2018"

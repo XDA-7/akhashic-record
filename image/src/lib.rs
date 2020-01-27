@@ -1,27 +1,27 @@
 #[derive(Clone,Copy,Default,PartialEq,Eq,Hash,Debug)]
-struct RGB {
-    red: u8,
-    green: u8,
-    blue: u8,
+pub struct RGB {
+    pub red: u8,
+    pub green: u8,
+    pub blue: u8,
 }
 
-struct Canvas<T> {
-    width: u32,
-    height: u32,
-    pixels: Vec<T>,
+pub struct Canvas<T> {
+    pub width: u32,
+    pub height: u32,
+    pub pixels: Vec<T>,
 }
 impl<T> Canvas<T> where T : Default + Clone {
-    fn new(width: u32, height: u32) -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         Canvas {
             width,
             height,
             pixels: vec![T::default(); (height * width) as usize],
         }
     }
-    fn pixel(&self, x: u32, y: u32) -> &T {
+    pub fn pixel(&self, x: u32, y: u32) -> &T {
         &self.pixels[(y * self.width + x) as usize]
     }
-    fn set_pixel(&mut self, x: u32, y: u32, value: T) {
+    pub fn set_pixel(&mut self, x: u32, y: u32, value: T) {
         self.pixels[(y * self.width + x) as usize] = value;
     }
 }
@@ -43,7 +43,7 @@ impl GreyScaleImage {
     }
 }
 
-struct Palette {
+pub struct Palette {
     color_index_map: std::collections::HashMap<RGB,usize>,
     index_color_map: std::collections::HashMap<usize,RGB>,
 }
@@ -65,17 +65,17 @@ impl Palette {
             }
         }
     }
-    fn color(&self, index: usize) -> Option<&RGB> {
+    pub fn color(&self, index: usize) -> Option<&RGB> {
         self.index_color_map.get(&index)
     }
 }
 
-struct ColorImage {
-    palette: Palette,
-    canvas: Canvas<usize>,
+pub struct ColorImage {
+    pub palette: Palette,
+    pub canvas: Canvas<usize>,
 }
 impl ColorImage {
-    fn new(width: u32, height: u32, initial_color: RGB) -> Self {
+    pub fn new(width: u32, height: u32, initial_color: RGB) -> Self {
         let mut palette = Palette::new();
         palette.index(initial_color);
         ColorImage {
@@ -83,10 +83,10 @@ impl ColorImage {
             canvas: Canvas::new(width, height),
         }
     }
-    fn set_pixel(&mut self, x: u32, y: u32, value: RGB) {
+    pub fn set_pixel(&mut self, x: u32, y: u32, value: RGB) {
         self.canvas.set_pixel(x, y, self.palette.index(value));
     }
-    fn pixel(&self, x: u32, y: u32) -> RGB {
+    pub fn pixel(&self, x: u32, y: u32) -> RGB {
         let index = self.canvas.pixel(x, y);
         *self.palette.color(*index).unwrap()
     }
@@ -94,7 +94,6 @@ impl ColorImage {
 
 #[cfg(test)]
 mod tests {
-    use std::iter::Map;
     use super::*;
     #[test]
     fn canvas_remembers_values() {
@@ -104,7 +103,7 @@ mod tests {
     }
     #[test]
     fn canvas_uses_default_values() {
-        let mut canvas: Canvas<u8> = Canvas::new(60, 60);
+        let canvas: Canvas<u8> = Canvas::new(60, 60);
         assert_eq!(canvas.pixel(13, 25), &0);
     }
     #[test]
@@ -158,7 +157,7 @@ mod tests {
 
     #[test]
     fn color_image_uses_default_color() {
-        let mut image = ColorImage::new(60, 90, RGB { red: 60, green: 30, blue: 45});
+        let image = ColorImage::new(60, 90, RGB { red: 60, green: 30, blue: 45});
         for i in 0..60 {
             for j in 0..90 {
                 assert_eq!(image.pixel(i, j), RGB { red: 60, green: 30, blue: 45});

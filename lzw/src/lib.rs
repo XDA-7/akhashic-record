@@ -10,8 +10,8 @@ const BIT_MASK_U8: [u8; 8] = [
 ];
 
 pub struct BitArray {
-    packed_bits: Vec<u8>,
-    length: usize,
+    pub packed_bits: Vec<u8>,
+    pub length: usize,
 }
 impl BitArray {
     fn new(bits: &[u8]) -> Self {

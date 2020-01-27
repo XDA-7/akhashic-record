@@ -10,7 +10,7 @@ edition = "2018"
 members = [
     "chunk_writer",
     "crc",
-    "png_image",
+    "image",
     "lz77",
     "lzw",
     "zlib",

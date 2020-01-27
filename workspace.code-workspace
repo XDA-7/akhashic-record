@@ -10,9 +10,6 @@
 			"path": "lz77"
 		},
 		{
-			"path": "png_image"
-		},
-		{
 			"path": "."
 		},
 		{
@@ -20,6 +17,9 @@
 		},
 		{
 			"path": "lzw"
+		},
+		{
+			"path": "image"
 		}
 	],
 	"settings": {}
