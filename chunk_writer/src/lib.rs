@@ -224,9 +224,19 @@ pub mod gif {
         data.push(0);
         // minimum code length of 8
         data.push(8);
-        let encoding = lzw::encode(pixels);
-        data.push(encoding.packed_bits.len() as u8);
-        data.extend(encoding.packed_bits);
+        let encoding = lzw::encode(pixels).packed_bits;
+        let full_block_count = encoding.len() / 255;
+        let mut i = 0;
+        let mut block_i = 0;
+        while block_i < full_block_count {
+            data.push(255);
+            data.extend(&encoding[i..=(i + 255)]);
+            i = i + 256;
+            block_i = block_i + 1;
+        }
+        data.push((encoding.len() - i) as u8);
+        data.extend(&encoding[i..]);
+        data.push(0);
     }
     fn truncate_usize_vec(data: &Vec<usize>) -> Vec<u8> {
         let mut result = Vec::new();
