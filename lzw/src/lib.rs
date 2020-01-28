@@ -187,6 +187,62 @@ pub fn decode(codes: &Vec<Code>, reserved_codes: u32) -> Vec<u8> {
     }
     data
 }
+fn get_next_code(codes: &Vec<u8>, cursor: &mut usize, code_length: usize) -> u32 {
+    let mut result = 0;
+    let mut byte = *cursor / 8;
+    let mut bit = *cursor % 8;
+    for i in 0..code_length {
+        if (codes[byte] >> bit) & 1 == 1 {
+            result = result | (1 << i);
+        }
+        bit += 1;
+        if bit == 8 {
+            byte += 1;
+            bit = 0;
+        }
+    }
+    *cursor = (byte * 8) + bit;
+    result
+}
+fn has_next_code(codes: &Vec<u8>, cursor: usize, code_length: usize) -> bool {
+    let remaining_space = (codes.len() * 8) - cursor;
+    remaining_space >= cursor
+}
+pub fn decode_from_little_endian(codes: &Vec<u8>, minimum_code_length: usize, reserved_codes: u32) -> Vec<u8> {
+    let mut data = Vec::new();
+    let mut dictionary: std::collections::HashMap<u32,Vec<u8>> = std::collections::HashMap::new();
+    let initial_literal_count: u8 = (1 << minimum_code_length) - 1;
+    let initial_substrings: Vec<u8> = (0..=initial_literal_count).collect();
+    for i in 0..=initial_literal_count {
+        dictionary.insert(i as u32, vec![initial_substrings[i as usize]]);
+    }
+    let mut cursor = 0;
+    let previous_code = get_next_code(codes, &mut cursor, minimum_code_length);
+    let mut previous_substring = dictionary.get(&previous_code).unwrap().clone();
+    data.extend(previous_substring.iter());
+    let mut code_length = minimum_code_length + 1;
+    while has_next_code(&codes, cursor, code_length)  {
+        // add the substring obtained by the current code to the data
+        let current_code = get_next_code(&codes, &mut cursor, code_length);
+        println!("next code: {}", current_code);
+        match dictionary.get(&current_code) {
+            Some(current_substring) => {
+                let current_substring = current_substring.clone();
+                println!("matching substring: {:?}", current_substring);
+                data.extend(current_substring.iter());
+                // create a new dictionary entry using the previous substring and the first byte of the current substring
+                let mut new_substring = previous_substring;
+                new_substring.push(current_substring[0]);
+                let new_code = dictionary.len() as u32 + reserved_codes;
+                dictionary.insert(new_code, new_substring);
+                code_length = get_code_length(new_code);
+                previous_substring = current_substring;
+            },
+            None => (),
+        }
+    }
+    data
+}
 
 #[cfg(test)]
 mod tests {
