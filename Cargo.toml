@@ -20,3 +20,4 @@ members = [
 
 image = { path = "image" }
 chunk_writer = { path = "chunk_writer" }
+lzw = { path = "lzw" }

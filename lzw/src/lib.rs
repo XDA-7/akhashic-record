@@ -9,12 +9,22 @@ const BIT_MASK_U8: [u8; 8] = [
     0b00000001,
 ];
 
+pub struct EncodingResult {
+    pub codes: Vec<Code>,
+    pub bytes_processed: usize,
+}
+
+pub struct Code {
+    pub value: u32,
+    pub length: usize,
+}
+
 pub struct BitArray {
     pub packed_bits: Vec<u8>,
     pub length: usize,
 }
 impl BitArray {
-    fn new(bits: &[u8]) -> Self {
+    pub fn new(bits: &[u8]) -> Self {
         let mut packed_bits = Vec::new();
         let length = bits.len();
         let mut current_bit = 0;
@@ -110,8 +120,8 @@ fn get_code_length(code: u32) -> usize {
     }
     right_shift + 1
 }
-pub fn encode(data: &Vec<u8>) -> BitArray {
-    let mut encoding = BitArray::new(&[]);
+pub fn encode(data: &[u8], max_encodings: u32, reserved_codes: u32) -> EncodingResult {
+    let mut encoding = Vec::new();
     let mut dictionary: std::collections::HashMap<&[u8],u32> = std::collections::HashMap::new();
     let initial_substrings: Vec<u8> = (0..=255).collect();
     for i in 0..=255 {
@@ -124,54 +134,55 @@ pub fn encode(data: &Vec<u8>) -> BitArray {
         let scan = &data[scan_start..scan_end];
         if !dictionary.contains_key(scan) {
             let matching_code = dictionary.get(&data[scan_start..(scan_end - 1)]).unwrap();
-            let matching_code = BitArray::from_u32(*matching_code, code_length);
-            encoding.append(&matching_code);
-            let new_code = dictionary.len() as u32;
+            encoding.push(Code { value: *matching_code, length: code_length });
+            let new_code = dictionary.len() as u32 + reserved_codes;
+            if new_code > max_encodings {
+                return EncodingResult { codes: encoding, bytes_processed: scan_end - 1 };
+            }
             dictionary.insert(scan, new_code);
             code_length = get_code_length(new_code);
             scan_start = scan_end - 1;
         }
         else if scan_end == data.len() {
             let matching_code = dictionary.get(scan).unwrap();
-            let matching_code = BitArray::from_u32(*matching_code, code_length);
-            encoding.append(&matching_code);
+            encoding.push(Code { value: *matching_code, length: code_length });
             scan_start = scan_end;
         }
         else {
             scan_end = scan_end + 1;
         }
     }
-    encoding
+    EncodingResult { codes: encoding, bytes_processed: data.len() }
 }
-fn get_next_code(code: &BitArray, position: &mut usize, code_length: usize) -> u32 {
-    let range = code.range(*position, *position + code_length);
-    *position = *position + code_length;
-    range.to_u32()
+pub fn encode_all(data: &Vec<u8>, max_encodings: u32, reserved_codes: u32) -> Vec<EncodingResult> {
+    let mut results = Vec::new();
+    let mut processed = 0;
+    while processed < data.len() {
+        let result = encode(&data[processed..], max_encodings, reserved_codes);
+        processed += result.bytes_processed;
+        results.push(result);
+    }
+    results
 }
-pub fn decode(code: &BitArray) -> Vec<u8> {
+pub fn decode(codes: &Vec<Code>, reserved_codes: u32) -> Vec<u8> {
     let mut data = Vec::new();
     let mut dictionary: std::collections::HashMap<u32,Vec<u8>> = std::collections::HashMap::new();
     let initial_substrings: Vec<u8> = (0..=255).collect();
     for i in 0..=255 {
         dictionary.insert(i as u32, vec![initial_substrings[i]]);
     }
-    let mut current_code_position = 0;
-    let previous_code = get_next_code(code, &mut current_code_position, 8);
-    let mut previous_substring = dictionary.get(&previous_code).unwrap().clone();
+    let previous_code = codes.first().unwrap();
+    let mut previous_substring = dictionary.get(&previous_code.value).unwrap().clone();
     data.extend(previous_substring.iter());
-    let mut code_length = 9;
-    while current_code_position != code.length {
+    for current_code in &codes[1..] {
         // add the substring obtained by the current code to the data
-        let current_code = get_next_code(code, &mut current_code_position, code_length);
-        let current_substring = dictionary.get(&current_code).unwrap().clone();
+        let current_substring = dictionary.get(&current_code.value).unwrap().clone();
         data.extend(current_substring.iter());
         // create a new dictionary entry using the previous substring and the first byte of the current substring
         let mut new_substring = previous_substring;
         new_substring.push(current_substring[0]);
-        let new_code = dictionary.len() as u32;
+        let new_code = dictionary.len() as u32 + reserved_codes;
         dictionary.insert(new_code, new_substring);
-        // update the code length and previous substring
-        code_length = get_code_length(new_code + 1);
         previous_substring = current_substring;
     }
     data
@@ -302,24 +313,6 @@ mod tests {
     }
 
     #[test]
-    fn get_next_code_returns_correct_codes() {
-        let codes = BitArray::new(&[
-            1,0,1,1,1,0,0,1,
-            0,1,1,
-            0,1,1,1,1,0,0,
-            1,0,
-            1,1,1,1,1,1,1,1,1,1,1,1,
-            0,1,1,0,0,1,1,0,0,1,1,0,
-        ]);
-        let mut cursor = 0;
-        assert_eq!(0b00000000000000000000000010111001, get_next_code(&codes, &mut cursor, 8));
-        assert_eq!(0b00000000000000000000000000000011, get_next_code(&codes, &mut cursor, 3));
-        assert_eq!(0b00000000000000000000000000111100, get_next_code(&codes, &mut cursor, 7));
-        assert_eq!(0b00000000000000000000000000000010, get_next_code(&codes, &mut cursor, 2));
-        assert_eq!(0b00000000000000000000111111111111, get_next_code(&codes, &mut cursor, 12));
-        assert_eq!(0b00000000000000000000011001100110, get_next_code(&codes, &mut cursor, 12));
-    }
-    #[test]
     fn encode_produces_expected_code() {
         let data: Vec<u8> = vec![5,6,7,8,5,6,7,5,6,7,7,6,5,4];
         //expected generation sequence will be
@@ -334,25 +327,35 @@ mod tests {
         // [6] -> 6, [6,5] = 264
         // [5] -> 5, [5,4] = 265
         // [4] -> 4
-        let encoding = encode(&data);
-        let mut cursor = 0;
-        assert_eq!(0b00000101, get_next_code(&encoding, &mut cursor, 8));
-        assert_eq!(0b000000110, get_next_code(&encoding, &mut cursor, 9));
-        assert_eq!(0b000000111, get_next_code(&encoding, &mut cursor, 9));
-        assert_eq!(0b000001000, get_next_code(&encoding, &mut cursor, 9));
-        assert_eq!(0b100000000, get_next_code(&encoding, &mut cursor, 9));
-        assert_eq!(0b000000111, get_next_code(&encoding, &mut cursor, 9));
-        assert_eq!(0b100000100, get_next_code(&encoding, &mut cursor, 9));
-        assert_eq!(0b000000111, get_next_code(&encoding, &mut cursor, 9));
-        assert_eq!(0b000000110, get_next_code(&encoding, &mut cursor, 9));
-        assert_eq!(0b000000101, get_next_code(&encoding, &mut cursor, 9));
-        assert_eq!(0b000000100, get_next_code(&encoding, &mut cursor, 9));
+        let encoding = encode(&data, 4095, 0);
+        assert_eq!(0b00000101, encoding.codes[0].value);
+        assert_eq!(8, encoding.codes[0].length);
+        assert_eq!(0b000000110, encoding.codes[1].value);
+        assert_eq!(9, encoding.codes[1].length);
+        assert_eq!(0b000000111, encoding.codes[2].value);
+        assert_eq!(9, encoding.codes[2].length);
+        assert_eq!(0b000001000, encoding.codes[3].value);
+        assert_eq!(9, encoding.codes[3].length);
+        assert_eq!(0b100000000, encoding.codes[4].value);
+        assert_eq!(9, encoding.codes[4].length);
+        assert_eq!(0b000000111, encoding.codes[5].value);
+        assert_eq!(9, encoding.codes[5].length);
+        assert_eq!(0b100000100, encoding.codes[6].value);
+        assert_eq!(9, encoding.codes[6].length);
+        assert_eq!(0b000000111, encoding.codes[7].value);
+        assert_eq!(9, encoding.codes[7].length);
+        assert_eq!(0b000000110, encoding.codes[8].value);
+        assert_eq!(9, encoding.codes[8].length);
+        assert_eq!(0b000000101, encoding.codes[9].value);
+        assert_eq!(9, encoding.codes[9].length);
+        assert_eq!(0b000000100, encoding.codes[10].value);
+        assert_eq!(9, encoding.codes[10].length);
     }
     #[test]
     fn decode_reproduces_original_data() {
         let data: Vec<u8> = vec![5,6,7,8,5,6,7,5,6,7,7,6,5,4];
-        let encoding = encode(&data);
-        let decoding = decode(&encoding);
+        let encoding = encode(&data, 4095, 0);
+        let decoding = decode(&encoding.codes, 0);
         assert_eq!(data, decoding);
     }
     #[test]
@@ -363,8 +366,46 @@ mod tests {
             data.push(i as u8);
             i = (i + 131) % 256;
         }
-        let encoding = encode(&data);
-        let decoding = decode(&encoding);
+        let encoding = encode(&data, 4095, 0);
+        let decoding = decode(&encoding.codes, 0);
         assert_eq!(data, decoding);
+    }
+    #[test]
+    fn encode_will_only_work_until_max_code_length_reached() {
+        let mut i = 0;
+        let mut data = Vec::new();
+        for _ in 0..30000 {
+            data.push(i as u8);
+            i = (i + 131) % 256;
+        }
+        let encoding = encode(&data, 511, 0);
+        assert_ne!(encoding.bytes_processed, 30000);
+    }
+    #[test]
+    fn encode_decode_reproduces_data_when_codes_are_reserved() {
+        let mut i = 0;
+        let mut data = Vec::new();
+        for _ in 0..30000 {
+            data.push(i as u8);
+            i = (i + 131) % 256;
+        }
+        let encoding = encode(&data, 4095, 12);
+        let decoding = decode(&encoding.codes, 12);
+        assert_eq!(data, decoding);
+    }
+    #[test]
+    fn encode_all_does_not_corrupt_data() {
+        let mut i = 0;
+        let mut data = Vec::new();
+        for _ in 0..30000 {
+            data.push(i as u8);
+            i = (i + 131) % 256;
+        }
+        let encodings = encode_all(&data, 511, 0);
+        let mut decoding = Vec::new();
+        for encoding in encodings {
+            decoding.extend(decode(&encoding.codes, 0));
+        }
+        assert_eq!(decoding, data);
     }
 }

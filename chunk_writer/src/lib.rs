@@ -224,19 +224,7 @@ pub mod gif {
         data.push(0);
         // minimum code length of 8
         data.push(8);
-        let encoding = lzw::encode(pixels).packed_bits;
-        let full_block_count = encoding.len() / 255;
-        let mut i = 0;
-        let mut block_i = 0;
-        while block_i < full_block_count {
-            data.push(255);
-            data.extend(&encoding[i..=(i + 255)]);
-            i = i + 256;
-            block_i = block_i + 1;
-        }
-        data.push((encoding.len() - i) as u8);
-        data.extend(&encoding[i..]);
-        data.push(0);
+        pack_encodings_into_bytes(lzw::encode_all(pixels, MAX_ENCODINGS, 2), data);
     }
     fn truncate_usize_vec(data: &Vec<usize>) -> Vec<u8> {
         let mut result = Vec::new();
@@ -244,6 +232,51 @@ pub mod gif {
             result.push(*byte as u8);
         }
         result
+    }
+    const CLEAR_CODE: lzw::Code = lzw::Code { value: 256, length: 9 };
+    const EOI_CODE: lzw::Code = lzw::Code { value: 257, length: 9 };
+    // (2 ** 12)
+    const MAX_ENCODINGS: u32 = 4096;
+    struct PartialByte {
+        bit_index: usize,
+        byte: u8,
+    }
+    fn pack_encodings_into_bytes(encodings: Vec<lzw::EncodingResult>, data: &mut Vec<u8>) {
+        let mut data_block = Vec::new();
+        let mut current = PartialByte { bit_index: 0, byte: 0 };
+        for encoding in encodings {
+            pack_code(CLEAR_CODE, &mut current, &mut data_block);
+            for code in encoding.codes {
+                pack_code(code, &mut current, &mut data_block);
+            }
+        }
+        pack_code(EOI_CODE, &mut current, &mut data_block);
+        let mut remaining_data = data_block.len();
+        let mut data_block_index = 0;
+        while remaining_data >= 255 {
+            data.push(255);
+            data.extend(&data_block[data_block_index..(data_block_index + 255)]);
+            remaining_data -= 255;
+            data_block_index += 255;
+        }
+        data.push(remaining_data as u8);
+        data.extend(&data_block[data_block_index..]);
+        data.push(0);
+    }
+    fn pack_code(code: lzw::Code, current: &mut PartialByte, data_block: &mut Vec<u8>) {
+        let bit_mask: [u8; 8] = [0b00000001,0b00000010, 0b00000100, 0b00001000, 0b00010000, 0b00100000, 0b01000000, 0b10000000];
+        //add bits starting with the lowest and working from the back to start of the byte
+        for i in 0..code.length {
+            if (code.value >> i) & 1 == 1 {
+                current.byte = current.byte | bit_mask[current.bit_index];
+            }
+            current.bit_index += 1;
+            if current.bit_index == 8 {
+                data_block.push(current.byte);
+                current.bit_index = 0;
+                current.byte = 0;
+            }
+        }
     }
 
     pub struct GifImage {

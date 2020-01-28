@@ -6,6 +6,7 @@ version = "0.1.0"
 dependencies = [
  "chunk_writer 0.1.0",
  "image 0.1.0",
+ "lzw 0.1.0",
 ]
 
 [[package]]
