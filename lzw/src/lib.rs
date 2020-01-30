@@ -129,7 +129,7 @@ pub fn encode(data: &[u8], max_encodings: u32, reserved_codes: u32) -> EncodingR
     }
     let mut scan_start = 0;
     let mut scan_end = 1;
-    let mut code_length = 8;
+    let mut code_length = if reserved_codes == 0 { 8 } else { 9 };
     while scan_start != data.len() {
         let scan = &data[scan_start..scan_end];
         if !dictionary.contains_key(scan) {
@@ -176,70 +176,25 @@ pub fn decode(codes: &Vec<Code>, reserved_codes: u32) -> Vec<u8> {
     data.extend(previous_substring.iter());
     for current_code in &codes[1..] {
         // add the substring obtained by the current code to the data
-        let current_substring = dictionary.get(&current_code.value).unwrap().clone();
-        data.extend(current_substring.iter());
-        // create a new dictionary entry using the previous substring and the first byte of the current substring
-        let mut new_substring = previous_substring;
-        new_substring.push(current_substring[0]);
-        let new_code = dictionary.len() as u32 + reserved_codes;
-        dictionary.insert(new_code, new_substring);
-        previous_substring = current_substring;
-    }
-    data
-}
-fn get_next_code(codes: &Vec<u8>, cursor: &mut usize, code_length: usize) -> u32 {
-    let mut result = 0;
-    let mut byte = *cursor / 8;
-    let mut bit = *cursor % 8;
-    for i in 0..code_length {
-        if (codes[byte] >> bit) & 1 == 1 {
-            result = result | (1 << i);
-        }
-        bit += 1;
-        if bit == 8 {
-            byte += 1;
-            bit = 0;
-        }
-    }
-    *cursor = (byte * 8) + bit;
-    result
-}
-fn has_next_code(codes: &Vec<u8>, cursor: usize, code_length: usize) -> bool {
-    let remaining_space = (codes.len() * 8) - cursor;
-    remaining_space >= cursor
-}
-pub fn decode_from_little_endian(codes: &Vec<u8>, minimum_code_length: usize, reserved_codes: u32) -> Vec<u8> {
-    let mut data = Vec::new();
-    let mut dictionary: std::collections::HashMap<u32,Vec<u8>> = std::collections::HashMap::new();
-    let initial_literal_count: u8 = (1 << minimum_code_length) - 1;
-    let initial_substrings: Vec<u8> = (0..=initial_literal_count).collect();
-    for i in 0..=initial_literal_count {
-        dictionary.insert(i as u32, vec![initial_substrings[i as usize]]);
-    }
-    let mut cursor = 0;
-    let previous_code = get_next_code(codes, &mut cursor, minimum_code_length);
-    let mut previous_substring = dictionary.get(&previous_code).unwrap().clone();
-    data.extend(previous_substring.iter());
-    let mut code_length = minimum_code_length + 1;
-    while has_next_code(&codes, cursor, code_length)  {
-        // add the substring obtained by the current code to the data
-        let current_code = get_next_code(&codes, &mut cursor, code_length);
-        println!("next code: {}", current_code);
-        match dictionary.get(&current_code) {
+        let (current_substring, new_substring) = match dictionary.get(&current_code.value) {
             Some(current_substring) => {
-                let current_substring = current_substring.clone();
-                println!("matching substring: {:?}", current_substring);
-                data.extend(current_substring.iter());
                 // create a new dictionary entry using the previous substring and the first byte of the current substring
                 let mut new_substring = previous_substring;
                 new_substring.push(current_substring[0]);
-                let new_code = dictionary.len() as u32 + reserved_codes;
-                dictionary.insert(new_code, new_substring);
-                code_length = get_code_length(new_code);
-                previous_substring = current_substring;
-            },
-            None => (),
-        }
+                (current_substring.clone(), new_substring)
+            }
+            None => {
+                // create a new dictionary entry using the previous substring with the first byte repeated at the end
+                let mut new_substring = previous_substring;
+                new_substring.push(new_substring[0]);
+                (new_substring.clone(), new_substring)
+            }
+        };
+        
+        let new_code = dictionary.len() as u32 + reserved_codes;
+        dictionary.insert(new_code, new_substring);
+        data.extend(current_substring.iter());
+        previous_substring = current_substring;
     }
     data
 }
@@ -412,6 +367,13 @@ mod tests {
         let data: Vec<u8> = vec![5,6,7,8,5,6,7,5,6,7,7,6,5,4];
         let encoding = encode(&data, 4095, 0);
         let decoding = decode(&encoding.codes, 0);
+        assert_eq!(data, decoding);
+    }
+    #[test]
+    fn decode_reproduces_data_for_repetitive_blocks() {
+        let data: Vec<u8> = vec![5; 2000];
+        let encoding = encode(&data, 4095, 2);
+        let decoding = decode(&encoding.codes, 2);
         assert_eq!(data, decoding);
     }
     #[test]
