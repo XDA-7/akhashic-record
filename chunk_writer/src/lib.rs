@@ -291,12 +291,12 @@ pub mod gif {
             let mut data: Vec<u8> = vec![];
             // png is little-endian, which means that all multi-byte values will occur in reverse order
             data.extend(&HEADER_SIGNATURE);
-            let height = self.image.canvas.height as u16;
-            let height = [height as u8, (height >> 8) as u8];
-            data.extend(&height);
             let width = self.image.canvas.width as u16;
             let width = [width as u8, (width >> 8) as u8];
             data.extend(&width);
+            let height = self.image.canvas.height as u16;
+            let height = [height as u8, (height >> 8) as u8];
+            data.extend(&height);
             data.push(COLOR_TABLE_FIELDS);
             // background color: 0
             data.push(0);
