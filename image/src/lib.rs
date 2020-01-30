@@ -68,6 +68,9 @@ impl Palette {
     pub fn color(&self, index: usize) -> Option<&RGB> {
         self.index_color_map.get(&index)
     }
+    pub fn size(&self) -> usize {
+        self.color_index_map.len()
+    }
 }
 
 pub struct ColorImage {

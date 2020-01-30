@@ -199,6 +199,9 @@ pub mod gif {
     const EOF_SENTINEL: u8 = 0x3b;
 
     fn insert_color_table(palette: &image::Palette, data: &mut Vec<u8>) {
+        if palette.size() > 255 {
+            panic!("attempted to write a gif with too many colours");
+        }
         for i in 0..256 {
             match palette.color(i) {
                 Some(color) => {
@@ -233,10 +236,11 @@ pub mod gif {
         }
         result
     }
-    const CLEAR_CODE: lzw::Code = lzw::Code { value: 256, length: 9 };
-    const EOI_CODE: lzw::Code = lzw::Code { value: 257, length: 9 };
-    // (2 ** 12)
-    const MAX_ENCODINGS: u32 = 4096;
+    const INITIAL_CLEAR_CODE: lzw::Code = lzw::Code { value: 256, length: 9 };
+    const INTERMITTANT_CLEAR_CODE: lzw::Code = lzw::Code { value: 256, length: 12 };
+    const EOI_CODE_VALUE: u32 = 257;
+    // (2 ** 12) - 1
+    const MAX_ENCODINGS: u32 = 4095;
     struct PartialByte {
         bit_index: usize,
         byte: u8,
@@ -244,13 +248,19 @@ pub mod gif {
     fn pack_encodings_into_bytes(encodings: Vec<lzw::EncodingResult>, data: &mut Vec<u8>) {
         let mut data_block = Vec::new();
         let mut current = PartialByte { bit_index: 0, byte: 0 };
-        for encoding in encodings {
-            pack_code(CLEAR_CODE, &mut current, &mut data_block);
-            for code in encoding.codes {
+        pack_code(&INITIAL_CLEAR_CODE, &mut current, &mut data_block);
+        for encoding in &encodings[0..encodings.len() - 1] {
+            for code in encoding.codes.iter() {
                 pack_code(code, &mut current, &mut data_block);
             }
+            pack_code(&INTERMITTANT_CLEAR_CODE, &mut current, &mut data_block);
         }
-        pack_code(EOI_CODE, &mut current, &mut data_block);
+        let last_encoding = encodings.last().unwrap();
+        for code in last_encoding.codes.iter() {
+            pack_code(code, &mut current, &mut data_block);
+        }
+        pack_code(&lzw::Code { value: EOI_CODE_VALUE, length: last_encoding.codes.last().unwrap().length }, &mut current, &mut data_block);
+
         let mut remaining_data = data_block.len();
         let mut data_block_index = 0;
         while remaining_data >= 255 {
@@ -263,7 +273,7 @@ pub mod gif {
         data.extend(&data_block[data_block_index..]);
         data.push(0);
     }
-    fn pack_code(code: lzw::Code, current: &mut PartialByte, data_block: &mut Vec<u8>) {
+    fn pack_code(code: &lzw::Code, current: &mut PartialByte, data_block: &mut Vec<u8>) {
         let bit_mask: [u8; 8] = [0b00000001,0b00000010, 0b00000100, 0b00001000, 0b00010000, 0b00100000, 0b01000000, 0b10000000];
         //add bits starting with the lowest and working from the back to start of the byte
         for i in 0..code.length {
