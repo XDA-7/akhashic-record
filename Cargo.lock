@@ -5,6 +5,7 @@ name = "akhashic-record"
 version = "0.1.0"
 dependencies = [
  "chunk_writer 0.1.0",
+ "fractals 0.1.0",
  "image 0.1.0",
  "lzw 0.1.0",
 ]
@@ -21,6 +22,13 @@ dependencies = [
 [[package]]
 name = "crc"
 version = "0.1.0"
+
+[[package]]
+name = "fractals"
+version = "0.1.0"
+dependencies = [
+ "image 0.1.0",
+]
 
 [[package]]
 name = "image"

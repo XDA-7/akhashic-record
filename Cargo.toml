@@ -10,6 +10,7 @@ edition = "2018"
 members = [
     "chunk_writer",
     "crc",
+    "fractals",
     "image",
     "lz77",
     "lzw",
@@ -18,6 +19,7 @@ members = [
 
 [dependencies]
 
+fractals = { path = "fractals" }
 image = { path = "image" }
 chunk_writer = { path = "chunk_writer" }
 lzw = { path = "lzw" }
